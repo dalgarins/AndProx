@@ -60,6 +60,12 @@ Proxmark's USB ACM interface from user-space Java code.
 
 AndProx will write files to _Internal Storage_, in the `proxmark3` directory.
 
+## Enable use with Proxmark3 RDV4
+
+If you want to use AndProx with Proxmark4 RDV4 you only need to enable settings configuraion.
+
+![rdv4_enabled](./assets/v2_phone/enable_rdv4.png)
+
 ## Licensing
 
 Copyright 2016-2018 Michael Farrell.
