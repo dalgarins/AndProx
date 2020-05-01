@@ -40,7 +40,9 @@ import android.util.Log;
 
 import java.lang.ref.WeakReference;
 
-import au.id.micolous.andprox.ProxmarkVersion;
+import au.id.micolous.andprox.behavior.firmware.IFirmwareManager;
+import au.id.micolous.andprox.behavior.parse.ProxmarkParser;
+import au.id.micolous.andprox.behavior.version.ProxmarkVersion;
 import au.id.micolous.andprox.R;
 import au.id.micolous.andprox.activities.CliActivity;
 import au.id.micolous.andprox.activities.MainActivity;
@@ -109,8 +111,13 @@ public abstract class ConnectTask extends AsyncTask<Boolean, Void, ConnectTask.C
         }
     }
 
-    ConnectTask(Context context) {
-        mContext = new WeakReference<>(context);
+    private ProxmarkParser parser;
+    private IFirmwareManager firmwareManager;
+
+    ConnectTask(Context context, ProxmarkParser parser, IFirmwareManager firmwareManager) {
+        this.mContext = new WeakReference<>(context);
+        this.parser = parser;
+        this.firmwareManager = firmwareManager;
     }
 
     public Context getContext() {
@@ -175,7 +182,7 @@ public abstract class ConnectTask extends AsyncTask<Boolean, Void, ConnectTask.C
         }
 
         // Check if this version is good for us.
-        ProxmarkVersion v = ProxmarkVersion.parse(version);
+        ProxmarkVersion v = parser.apply(version);
         if (v != null && v.isSupportedVersion()) {
             // Port is left open at this point.
             return new ConnectTaskResult().setSuccess();
@@ -230,7 +237,7 @@ public abstract class ConnectTask extends AsyncTask<Boolean, Void, ConnectTask.C
                     .setCancelable(false);
             builder.show();
         } else if (result.unsupported) {
-            MainActivity.unsupportedFirmwareError(c);
+            firmwareManager.unsupportedFirmwareError();
         } else if (result.success) {
             // Start main activity, yay!
             Intent intent = new Intent(c, CliActivity.class);

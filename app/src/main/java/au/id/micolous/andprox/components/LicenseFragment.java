@@ -40,13 +40,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.Scanner;
 
 import au.id.micolous.andprox.R;
@@ -54,7 +49,7 @@ import au.id.micolous.andprox.R;
 /**
  * Fragment which displays all the license acknowledgements.
  */
-public class LicenseFragment extends Fragment {
+public class LicenseFragment extends InjectableFragment {
     private static final String TAG = LicenseFragment.class.getSimpleName();
 
     public LicenseFragment() {

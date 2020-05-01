@@ -38,7 +38,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.design.widget.FloatingActionButton;
-import android.support.v7.app.AppCompatActivity;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -52,14 +51,13 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import au.id.micolous.andprox.AndProxApplication;
 import au.id.micolous.andprox.R;
 import au.id.micolous.andprox.handlers.HandlerInterface;
 import au.id.micolous.andprox.hw.TuneTask;
 import au.id.micolous.andprox.natives.Natives;
 import au.id.micolous.andprox.tasks.SendCommandTask;
 
-public class CliActivity extends AppCompatActivity implements SendCommandTask.SendCommandCallback {
+public class CliActivity extends InjectableActivity implements SendCommandTask.SendCommandCallback {
     private static final String TAG = "CliActivity";
 
     private EditText etCommandInput;
@@ -108,7 +106,7 @@ public class CliActivity extends AppCompatActivity implements SendCommandTask.Se
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_cli);
-        if (!AndProxApplication.allowSleep()) {
+        if (!preferences.allowSleep()) {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
 

@@ -40,42 +40,33 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
-import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
-import com.hoho.android.usbserial.driver.UsbId;
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
-import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.driver.UsbSerialProber;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 
-import au.id.micolous.andprox.AndProxApplication;
-import au.id.micolous.andprox.ConnectivityMode;
 import au.id.micolous.andprox.R;
 import au.id.micolous.andprox.Utils;
+import au.id.micolous.andprox.device.ConnectivityMode;
 import au.id.micolous.andprox.natives.Natives;
 import au.id.micolous.andprox.tasks.ConnectTCPTask;
-import au.id.micolous.andprox.tasks.ConnectUSBTask;
 import au.id.micolous.andprox.tasks.CopyTask;
 
-import static au.id.micolous.andprox.AndProxApplication.allowAllProxmarkDevices;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends InjectableActivity {
+
 
     private static final String TAG = "MainActivity";
     private static final String ACTION_USB_PERMISSION = "au.id.micolous.andprox.USB_PERMISSION";
@@ -114,88 +105,31 @@ public class MainActivity extends AppCompatActivity {
             String action = intent.getAction();
             if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(action) || UsbManager.ACTION_USB_DEVICE_DETACHED.equals(action)) {
                 UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
-                dumpUsbDeviceInfo(manager);
+                dumpDevice.dumpUsbDeviceInfo(manager);
                 MainActivity.this.runOnUiThread(MainActivity.this::updateIntroText);
             }
         }
     };
 
-    public static void dumpUsbDeviceInfo(UsbManager manager) {
-        // List all the devices
-        StringBuilder deviceInfo = new StringBuilder();
-        AndProxApplication app = AndProxApplication.getInstance();
-        app.setProxmarkDetected(false);
-        app.setOldProxmarkDetected(false);
-
-        HashMap<String, UsbDevice> deviceList = manager.getDeviceList();
-        deviceInfo.append(String.format(Locale.ENGLISH, "Found %d USB device(s):\n", deviceList.size()));
-
-        for (UsbDevice d : deviceList.values()) {
-            deviceInfo.append(String.format(Locale.ENGLISH, "- %s (%04x:%04x)\n", d.getDeviceName(), d.getVendorId(), d.getProductId()));
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                deviceInfo.append(String.format(Locale.ENGLISH, "  Name: %s\n", d.getProductName()));
-            }
-
-            if (d.getSerialNumber() != null) {
-                deviceInfo.append(String.format(Locale.ENGLISH, "  Serial: %s\n", d.getSerialNumber()));
-            } else {
-                deviceInfo.append("  Could not retrieve serial number!\n");
-            }
-        }
-
-        List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager);
-        deviceInfo.append(String.format(Locale.ENGLISH, "\nFound %d suitable driver(s):\n", availableDrivers.size()));
-
-        for (UsbSerialDriver d : availableDrivers) {
-            UsbDevice dev = d.getDevice();
-
-            deviceInfo.append(String.format(Locale.ENGLISH, "- %s (%04x:%04x)\n",
-                    dev.getDeviceName(), dev.getVendorId(), dev.getProductId()));
-
-            for (UsbSerialPort p : d.getPorts()) {
-                deviceInfo.append(String.format(Locale.ENGLISH, "  Port %d: %s\n", p.getPortNumber(), p.getClass().getSimpleName()));
-
-                if (allowAllProxmarkDevices()) {
-                    deviceInfo.append("  Detected PM3!\n");
-                    app.setProxmarkDetected(true);
-                } else {
-                    if (dev.getVendorId() == UsbId.VENDOR_PROXMARK3 && dev.getProductId() == UsbId.PROXMARK3) {
-                        deviceInfo.append("  Detected PM3!\n");
-                        app.setProxmarkDetected(true);
-                    } else if (dev.getVendorId() == UsbId.VENDOR_PROXMARK3_OLD && dev.getProductId() == UsbId.PROXMARK3_OLD) {
-                        deviceInfo.append("  Old PM3 firmware -- needs update!\n");
-                        app.setOldProxmarkDetected(true);
-                    }
-                }
-            }
-        }
-
-        Log.d(TAG, deviceInfo.toString());
-        app.setExtraDeviceInfo(deviceInfo.toString());
-
-    }
-
     private void updateIntroText() {
         TextView tvIntroText = findViewById(R.id.tvIntroText);
         final Button btnConnect = findViewById(R.id.btnConnect);
-        ConnectivityMode mode = AndProxApplication.getConnectivityMode();
+        ConnectivityMode mode = preferences.getConnectivityMode();
         btnConnect.setText(mode.getConnectButtonText());
 
         switch (mode) {
             case USB:
-                if (!AndProxApplication.hasUsbHostSupport()) {
+                if (!preferences.hasUsbHostSupport()) {
                     tvIntroText.setText(R.string.no_usb_host);
                     btnConnect.setEnabled(false);
                     return;
                 }
 
                 btnConnect.setEnabled(true);
-                AndProxApplication app = AndProxApplication.getInstance();
 
-                if (app.isProxmarkDetected()) {
+                if (detection.isProxmarkDetected()) {
                     tvIntroText.setText(R.string.intro_text_usb_detected);
-                } else if (app.isOldProxmarkDetected()) {
+                } else if (detection.isOldProxmarkDetected()) {
                     tvIntroText.setText(R.string.intro_text_old_pm3);
                 } else {
                     tvIntroText.setText(R.string.intro_text_default);
@@ -203,7 +137,7 @@ public class MainActivity extends AppCompatActivity {
                 break;
 
             case TCP:
-                tvIntroText.setText(Utils.localizeString(R.string.intro_text_tcp, AndProxApplication.getTcpHostStr(), AndProxApplication.getTcpPort()));
+                tvIntroText.setText(Utils.localizeString(this, R.string.intro_text_tcp, preferences.getTcpHostStr(), preferences.getTcpPort()));
                 btnConnect.setEnabled(true);
                 break;
 
@@ -227,7 +161,7 @@ public class MainActivity extends AppCompatActivity {
 
         UsbManager manager = null;
 
-        if (AndProxApplication.hasUsbHostSupport()) {
+        if (preferences.hasUsbHostSupport()) {
             manager = (UsbManager) getSystemService(Context.USB_SERVICE);
         }
 
@@ -240,7 +174,7 @@ public class MainActivity extends AppCompatActivity {
             registerReceiver(mUsbDeviceChangeReceiver, new IntentFilter(UsbManager.ACTION_USB_DEVICE_ATTACHED));
             registerReceiver(mUsbDeviceChangeReceiver, new IntentFilter(UsbManager.ACTION_USB_DEVICE_DETACHED));
 
-            dumpUsbDeviceInfo(manager);
+            dumpDevice.dumpUsbDeviceInfo(manager);
             updateIntroText();
 
             List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager);
@@ -339,30 +273,29 @@ public class MainActivity extends AppCompatActivity {
      * Attempt to connect to the proxmark
      */
     public void btnConnect(@Nullable View view) {
-        AndProxApplication app = AndProxApplication.getInstance();
         InetAddress addr = null;
 
-        switch (AndProxApplication.getConnectivityMode()) {
+        switch (preferences.getConnectivityMode()) {
             case USB:
-                if (app.isOldProxmarkDetected()) {
-                    unsupportedFirmwareError(MainActivity.this);
+                if (detection.isOldProxmarkDetected()) {
+                    firmwareManager.unsupportedFirmwareError();
                     return;
                 }
 
-                if (AndProxApplication.hasUsbHostSupport()) {
+                if (preferences.hasUsbHostSupport()) {
                     // If passed with a view, then we are called from the button.
-                    new ConnectUSBTask(this).execute(view != null);
+                    usbTaskSupplier.get().execute(view != null);
                 }
                 break;
 
             case TCP:
                 try {
-                    addr = AndProxApplication.getTcpHost();
+                    addr = preferences.getTcpHost();
                 } catch (UnknownHostException e) {
                     new AlertDialog.Builder(this)
                             .setTitle(R.string.tcp_error)
-                            .setMessage(Utils.localizeString(R.string.tcp_error_host_not_found,
-                                    AndProxApplication.getTcpHostStr(), e.getLocalizedMessage()))
+                            .setMessage(Utils.localizeString(this, R.string.tcp_error_host_not_found,
+                                    preferences.getTcpHostStr(), e.getLocalizedMessage()))
                             .setPositiveButton(android.R.string.ok, (dialog, which) -> dialog.dismiss())
                             .show();
                     return;
@@ -371,14 +304,15 @@ public class MainActivity extends AppCompatActivity {
                 if (addr == null) {
                     new AlertDialog.Builder(this)
                             .setTitle(R.string.tcp_error)
-                            .setMessage(Utils.localizeString(R.string.tcp_error_host_not_found,
-                                    AndProxApplication.getTcpHostStr(), "null"))
+                            .setMessage(Utils.localizeString(this, R.string.tcp_error_host_not_found,
+                                    preferences.getTcpHostStr(), "null"))
                             .setPositiveButton(android.R.string.ok, (dialog, which) -> dialog.dismiss())
                             .show();
                     return;
                 }
 
-                new ConnectTCPTask(this, addr, AndProxApplication.getTcpPort()).execute(true);
+                new ConnectTCPTask(this, parser, firmwareManager,
+                        addr, preferences.getTcpPort()).execute(true);
                 break;
 
             case NONE:
@@ -394,25 +328,5 @@ public class MainActivity extends AppCompatActivity {
     public void btnSettings(View view) {
         final Intent intent = new Intent(MainActivity.this, SettingsActivity.class);
         startActivityForResult(intent, SETTINGS_CALLBACK);
-    }
-
-    /**
-     * Show an error that the firmware version is unsupported.
-     * @param context Context of where we were called from.
-     */
-    public static void unsupportedFirmwareError(@NonNull Context context) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(context);
-        builder.setMessage(Utils.localizeString(R.string.reflash_required_message, Natives.getProxmarkClientVersion()))
-                .setTitle(R.string.reflash_required_title)
-                .setPositiveButton(R.string.instructions, (dialog, which) -> {
-                    context.startActivity(
-                            new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Proxmark/proxmark3/wiki/flashing")));
-                    dialog.dismiss();
-                })
-                .setNegativeButton(R.string.cancel, (dialog, which) -> {
-                    dialog.dismiss();
-                })
-                .setCancelable(false);
-        builder.show();
     }
 }

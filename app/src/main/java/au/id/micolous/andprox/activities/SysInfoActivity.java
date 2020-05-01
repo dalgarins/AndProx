@@ -33,7 +33,6 @@ import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Intent;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.method.ScrollingMovementMethod;
 import android.view.Menu;
@@ -41,13 +40,12 @@ import android.view.MenuItem;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import au.id.micolous.andprox.AndProxApplication;
 import au.id.micolous.andprox.R;
 
 /**
  * Displays system information and debugging info that is useful to troubleshoot AndProx issues.
  */
-public class SysInfoActivity extends AppCompatActivity {
+public class SysInfoActivity extends InjectableActivity {
 
     private String debugOutput;
     private static final String CLIP_TITLE = "AndProx";
@@ -59,7 +57,7 @@ public class SysInfoActivity extends AppCompatActivity {
         setTitle(R.string.sys_info_title);
 
         // Generate debugging information
-        debugOutput = AndProxApplication.getDeviceInfo(getBaseContext());
+        debugOutput = formatDevice.getDeviceInfo();
         TextView tvDebugOutput = findViewById(R.id.tvDebugOutput);
         tvDebugOutput.setText(debugOutput);
         tvDebugOutput.setMovementMethod(new ScrollingMovementMethod());

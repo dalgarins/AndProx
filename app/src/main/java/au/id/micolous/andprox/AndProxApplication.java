@@ -30,263 +30,40 @@
 
 package au.id.micolous.andprox;
 
-import android.app.ActivityManager;
+
 import android.app.Application;
-import android.content.Context;
-import android.content.SharedPreferences;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager;
-import android.os.Build;
-import android.preference.PreferenceManager;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.util.Log;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.Locale;
-
-import au.id.micolous.andprox.natives.Natives;
+import au.id.micolous.andprox.activities.AppCompatPreferenceActivity;
+import au.id.micolous.andprox.activities.InjectableActivity;
+import au.id.micolous.andprox.components.InjectableFragment;
+import au.id.micolous.andprox.di.component.AppComponent;
+import au.id.micolous.andprox.di.component.DaggerAppComponent;
+import au.id.micolous.andprox.di.module.AppModule;
 
 /**
  * AndProx application reference.
  */
 public class AndProxApplication extends Application {
-    public static final String PREF_ALLOWED_DEVICES = "pref_android_allowed_devices";
-    public static final String PREF_CONN_MODE = "pref_conn_mode";
-    public static final String PREF_ANDROID_EMU_HOST = "pref_android_emu_host";
-    public static final String PREF_TCP_HOST = "pref_tcp_host";
-    public static final String PREF_TCP_PORT = "pref_tcp_port";
-    public static final String PREF_ALLOW_SLEEP = "pref_allow_sleep";
 
-    public static final String PREF_CONN_USB = "usb";
-    public static final String PREF_CONN_TCP = "tcp";
-    public static final String PREF_CONN_NONE = "none";
+    private AppComponent appComponent;
 
-    private static final String DEFAULT_IP = "127.0.0.1";
-
-    private static AndProxApplication sInstance;
-    private String mExtraDeviceInfo = "";
-    private static final String TAG = "AndProxApplication";
-    private boolean mProxmarkDetected = false;
-    private boolean mOldProxmarkDetected = false;
-
-    public AndProxApplication() {
-        sInstance = this;
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        appComponent = DaggerAppComponent.builder()
+                .appModule(new AppModule(this))
+                .build();
     }
 
-    public void setExtraDeviceInfo(String extraDeviceInfo) {
-        mExtraDeviceInfo = extraDeviceInfo;
+    public void inject(InjectableFragment fragment) {
+        appComponent.inject(fragment);
     }
 
-    public void setProxmarkDetected(boolean state) {
-        mProxmarkDetected = state;
+    public void inject(InjectableActivity activity) {
+        appComponent.inject(activity);
     }
 
-    public boolean isProxmarkDetected() {
-        return mProxmarkDetected;
+    public void inject(AppCompatPreferenceActivity activity) {
+        appComponent.inject(activity);
     }
-
-    public void setOldProxmarkDetected(boolean state) {
-        mOldProxmarkDetected = state;
-    }
-
-    public boolean isOldProxmarkDetected() {
-        return mOldProxmarkDetected;
-    }
-
-    public static AndProxApplication getInstance() {
-        return sInstance;
-    }
-
-    private static String formatMemoryInfo(ActivityManager.MemoryInfo mi) {
-        if (mi == null) {
-            return "null";
-        }
-
-        return String.format(Locale.ENGLISH, "%s (%s free)",
-                Utils.formatBytes(mi.totalMem),
-                Utils.formatBytes(mi.availMem));
-    }
-
-    /**
-     * Dumps all device information that is useful for debugging AndProx.
-     *
-     * This always returns strings in English, and is only ever used for the SysInfoActivity. This
-     * is so that bug reports are readable by the developers. ;)
-     */
-    public static String getDeviceInfo(Context ctx) {
-        ActivityManager.MemoryInfo mi = null;
-
-        try {
-            ActivityManager am = (ActivityManager) ctx.getSystemService(Context.ACTIVITY_SERVICE);
-            if (am != null) {
-                mi = new ActivityManager.MemoryInfo();
-                am.getMemoryInfo(mi);
-            }
-        } catch (Exception e) {
-            Log.w(TAG, "Error getting memory information", e);
-            mi = null;
-        }
-
-        return String.format(Locale.ENGLISH,
-                        "AndProx version: %s\n" +
-                        "PM3 Client version: %s\n" +
-                        "Build timestamp: %s\n" +
-                        "Model: %s (%s)\n" +
-                        "Product: %s\n" +
-                        "Manufacturer: %s (%s)\n" +
-                        "RAM: %s\n" +
-                        "Android OS: %s (API %d)\n" +
-                        "Android Build: %s\n\n" +
-                        "USB Host: %s\n" +
-                        "%s", // extra device info
-                // Version:
-                getVersionString(),
-                Natives.getProxmarkClientVersion(),
-                Natives.getProxmarkClientBuildTimestamp(),
-                // Model:
-                Build.MODEL,
-                Build.DEVICE,
-                Build.PRODUCT,
-                // Manufacturer / brand:
-                Build.MANUFACTURER,
-                Build.BRAND,
-                // RAM:
-                formatMemoryInfo(mi),
-                // OS:
-                Build.VERSION.RELEASE,
-                Build.VERSION.SDK_INT,
-                // Build:
-                Build.ID,
-                // USB:
-                hasUsbHostSupport() ? "yes" : "no",
-                getInstance().mExtraDeviceInfo);
-    }
-
-    public static String getVersionString() {
-        PackageInfo info = getPackageInfo();
-        return String.format("%s (%s)", info.versionName, info.versionCode);
-    }
-
-    private static PackageInfo getPackageInfo() {
-        try {
-            AndProxApplication app = AndProxApplication.getInstance();
-            return app.getPackageManager().getPackageInfo(app.getPackageName(), 0);
-        } catch (PackageManager.NameNotFoundException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static boolean hasSystemFeature(String feature) {
-        AndProxApplication app = AndProxApplication.getInstance();
-        return app.getPackageManager().hasSystemFeature(feature);
-    }
-
-    public static boolean hasUsbHostSupport() {
-        return hasSystemFeature("android.hardware.usb.host");
-    }
-
-    private static SharedPreferences getPrefrences() {
-        return PreferenceManager.getDefaultSharedPreferences(getInstance());
-    }
-
-    private static boolean getBooleanPref(final String preference, final boolean defaultValue) {
-        final SharedPreferences prefs = getPrefrences();
-        return prefs.getBoolean(preference, defaultValue);
-    }
-
-    private static boolean getBooleanPref(final String preference) {
-        return getBooleanPref(preference, false);
-    }
-
-    @Nullable
-    private static String getStringPref(final String preference) {
-        return getStringPref(preference, null);
-    }
-
-    @Nullable
-    private static String getStringPref(final String preference, @Nullable final String defaultValue) {
-        final SharedPreferences prefs = getPrefrences();
-        return prefs.getString(preference, defaultValue);
-    }
-
-    private static int getIntPref(final String preference, final int defaultValue) {
-        final SharedPreferences prefs = getPrefrences();
-        final String s = prefs.getString(preference, null);
-
-        if (s != null) {
-            try {
-                return Integer.parseInt(s);
-            } catch (NumberFormatException ignored) {}
-        }
-
-        return defaultValue;
-    }
-
-    public static boolean allowAllProxmarkDevices() {
-        return getBooleanPref(PREF_ALLOWED_DEVICES, false);
-    }
-
-    public static boolean useAndroidEmulatorHost() {
-        return getBooleanPref(PREF_ANDROID_EMU_HOST, Utils.isRunningInEmulator());
-    }
-
-    public static boolean allowSleep() {
-        return getBooleanPref(PREF_ALLOW_SLEEP);
-    }
-
-    @Nullable
-    public static String getTcpHostStr() {
-        if (useAndroidEmulatorHost()) {
-            InetAddress a = Utils.getEmulatorHostIp();
-
-            if (a != null) {
-                return a.getHostAddress();
-            }
-        }
-
-        final String addr = getStringPref(PREF_TCP_HOST, DEFAULT_IP);
-        if (addr == null || addr.isEmpty()) {
-            return null;
-        }
-
-        return addr;
-    }
-
-    @Nullable
-    public static InetAddress getTcpHost() throws UnknownHostException {
-        if (useAndroidEmulatorHost()) {
-            InetAddress a = Utils.getEmulatorHostIp();
-
-            if (a != null) {
-                return a;
-            }
-        }
-
-        final String addr = getStringPref(PREF_TCP_HOST, DEFAULT_IP);
-        if (addr == null || addr.isEmpty()) {
-            return null;
-        }
-
-        return InetAddress.getByName(addr);
-
-    }
-
-    public static int getTcpPort() {
-        return getIntPref(PREF_TCP_PORT, 1234);
-    }
-
-    @NonNull
-    public static String getConnectivityModeStr() {
-        // defaultValue is NonNull, therefore will always return NonNull
-        //noinspection ConstantConditions
-        return getStringPref(PREF_CONN_MODE, hasUsbHostSupport() ? PREF_CONN_USB : PREF_CONN_TCP);
-    }
-
-    @NonNull
-    public static ConnectivityMode getConnectivityMode() {
-        return ConnectivityMode.fromModeString(getConnectivityModeStr());
-    }
-
 }

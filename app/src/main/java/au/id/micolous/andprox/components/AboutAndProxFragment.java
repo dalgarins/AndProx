@@ -38,16 +38,18 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-import au.id.micolous.andprox.AndProxApplication;
+import javax.inject.Inject;
+
 import au.id.micolous.andprox.R;
 import au.id.micolous.andprox.Utils;
+import au.id.micolous.andprox.behavior.format.IFormatDevice;
 import au.id.micolous.andprox.natives.Natives;
 
 
 /**
  * Fragment which displays the AndProx and Proxmark3 versions.
  */
-public class AboutAndProxFragment extends Fragment {
+public class AboutAndProxFragment extends InjectableFragment {
 
     public AboutAndProxFragment() {
         // Required empty public constructor
@@ -75,13 +77,13 @@ public class AboutAndProxFragment extends Fragment {
         View v = inflater.inflate(R.layout.fragment_about_and_prox, container, false);
 
         ((TextView)v.findViewById(R.id.tvVersionString)).setText(
-                Utils.localizeString(R.string.app_version, AndProxApplication.getVersionString()));
+                Utils.localizeString(getContext(), R.string.app_version, formatDevice.getVersionString()));
 
         ((TextView)v.findViewById(R.id.tvPm3ClientVersion)).setText(
-                Utils.localizeString(R.string.pm3_client_version, Natives.getProxmarkClientVersion()));
+                Utils.localizeString(getContext(), R.string.pm3_client_version, Natives.getProxmarkClientVersion()));
 
         ((TextView)v.findViewById(R.id.tvPm3BuildTS)).setText(
-                Utils.localizeString(R.string.pm3_build_ts, Natives.getProxmarkClientBuildTimestamp()));
+                Utils.localizeString(getContext(), R.string.pm3_build_ts, Natives.getProxmarkClientBuildTimestamp()));
 
         v.findViewById(R.id.btnWebsite).setOnClickListener(v1 -> startActivity(
                 new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/AndProx/AndProx"))));
